@@ -2,6 +2,12 @@
 
 Pemeriksaan lokal dilakukan pada 1 November 2026 di Windows 10, Python 3.13.1, Node.js 22.14.0 dan Docker Desktop dengan Linux containers. Semua data pesanan adalah data sintetis.
 
+## GitHub Actions
+
+[Run 41303604728](https://github.com/zalamanga/restorelab/actions/runs/41303604728) berhasil pada source [`439b22e`](https://github.com/zalamanga/restorelab/tree/439b22e80fd312963cadbbe93e2263f0f6c44290). Runner Ubuntu 24.04 menjalankan 49 unit test, recovery native melalui HTTP, penolakan backup rusak, delapan kasus browser bersama dan satu capture dokumentasi. Semua tahap tersebut lulus, termasuk pemeriksaan dependensi npm.
+
+Pengujian Linux menemukan perbedaan izin secret bind mount yang tidak muncul di Windows. Perbaikan mempertahankan file host `0600`: startup backup membaca secret sebagai root, kemudian menurunkan UID sebelum SQL dan backup. Fixture container terisolasi pada image yang sama membuktikan pengguna PostgreSQL tidak bisa membaca file dummy tersebut secara langsung, tetapi menerima password melalui environment setelah privilege drop. Query dan backup pada fixture berjalan dengan UID 70. CI kemudian memverifikasi backup dan recovery PostgreSQL yang sebenarnya.
+
 ## Hasil lokal
 
 | Pemeriksaan | Hasil dan bukti |
@@ -10,6 +16,7 @@ Pemeriksaan lokal dilakukan pada 1 November 2026 di Windows 10, Python 3.13.1, N
 | Physical backup dan WAL melalui engine | Latihan `9221cc21f2564a9bad1659a75e3c3cbb` mencapai 100, 103, 93 lalu 103 pesanan. Fingerprint sebelum insiden sama dengan hasil recovery. |
 | Job melalui HTTP | Latihan `295fe852e5924b7d9a3527aa9295ec6b` verified. POST ulang dengan request ID yang sama memakai job yang sama. Unduhan laporan cocok dengan SHA-256 `e91d467ed66627311e42d03f179dcfc4404a0e18a6d6f4d6527916a1d044b1a8`. |
 | Tombol dashboard ke PostgreSQL asli | Latihan `3a17dceffa1f4bcca5c9c40ed6804147` dijalankan dari checkbox dan tombol browser sampai verified, lalu laporannya diunduh dan diperiksa. |
+| Source terbaru setelah pindah folder | Controller dijalankan ulang dari lokasi final, lalu latihan `86cf0b1e589b4689ae87793f5de3f72d` lulus. Fingerprint cocok, recovery pause pada target, dan marker insiden tidak ikut dipulihkan. SHA-256 laporan `30ddab36d0b917cd94366dd2551f654255b2c0b0a795f33b4872823719d4f531`. |
 | Backup rusak | Salinan backup terpisah `0cd6d2703599452d9c4dd07ceeb1b218` sengaja diubah pada `base/PG_VERSION`. Diagnostic membuktikan `pg_verifybackup` sendiri menolak file tersebut. Backup asli valid sebelum dan setelah pengujian. Database sumber tidak diubah oleh tes ini. |
 | Browser | Delapan kasus unik lulus: tujuh pada suite awal, satu diulang setelah selector tes disclosure diperjelas. Perbaikannya hanya pada selector tes, bukan aplikasi. CI menjalankan kedelapan kasus bersama. |
 | Screenshot | Satu tes capture lulus. Gambar hasil verified, bukti teknis dan mobile berasal dari job PostgreSQL asli; gambar running diambil saat job native melalui UI berlangsung. |

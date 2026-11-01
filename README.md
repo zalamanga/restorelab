@@ -2,6 +2,8 @@
 
 Latihan pemulihan PostgreSQL dengan **backup fisik, arsip WAL, dan named restore point**. Aplikasi Python lokal menjalankan insiden pada data sintetis, memulihkan backup ke cluster terpisah, lalu membandingkan hasilnya dengan data sebelum insiden.
 
+[Verifikasi CI yang lulus](https://github.com/zalamanga/restorelab/actions/runs/41303604728): 49 unit test, recovery PostgreSQL asli, backup rusak ditolak, delapan kasus browser dan capture screenshot. [Baca bukti dan batas pengujiannya](docs/VERIFICATION.md).
+
 Proyek ini menjawab satu pertanyaan: **backup yang berhasil dibuat bisa mengembalikan data yang kita perlukan atau belum?**
 
 ![Hasil pemulihan PostgreSQL beserta snapshot dan bukti teknis](docs/screenshots/03-technical-evidence.png)

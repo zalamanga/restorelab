@@ -2,6 +2,8 @@
 
 Root review, 1 November 2026. Arah visual dicatat sebelum implementasi pada [DESIGN.md](../DESIGN.md). Bukti fungsi dan batas klaim ada pada [VERIFICATION.md](VERIFICATION.md). Empat screenshot PostgreSQL nyata diperiksa langsung, termasuk panel bukti teknis lengkap dan viewport mobile 390 × 844.
 
+Pengujian ulang source terbaru di laptop berhasil, dan [CI Ubuntu lengkap](https://github.com/zalamanga/restorelab/actions/runs/41303604728) lulus untuk unit, native recovery, backup rusak, browser dan capture. Perbaikan Linux tidak mengubah sumber UI atau gambar dokumentasi.
+
 ## 1. Hard Gate: PASS
 
 - R-02 PASS: scan teks sumber dan dokumentasi tidak menemukan em dash pada copy yang ditulis untuk proyek.
