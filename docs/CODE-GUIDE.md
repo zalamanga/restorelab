@@ -146,6 +146,8 @@ Cuplikan di atas menunjukkan jalur berhasil; implementasi lengkap juga menangani
 
 Tidak ada port PostgreSQL yang dipublikasikan ke host. Controller memakai `docker compose exec` untuk `psql`, dan tools mengakses primary lewat jaringan Compose. Password dibaca dari secret file, bukan dimasukkan ke command HTTP atau source Git.
 
+Secret host memakai mode `0600`. Karena [file-sourced secret Compose memakai bind mount](https://docs.docker.com/reference/compose-file/services/#long-syntax-3) dan mengabaikan pemetaan UID/GID/mode, hanya startup `backup.sh` berjalan sebagai root untuk membacanya pada Linux. Script kemudian menurunkan UID ke `postgres` dengan `gosu` atau `su-exec`, membawa `PGPASSWORD` melalui environment. Query dan `pg_basebackup` tetap berjalan sebagai `postgres`. Tools selain backup tidak mendapat pengecualian pengguna ini.
+
 `POSTGRES_USER=restorelab` pada image PostgreSQL membuat role SQL `restorelab` sebagai **superuser**. Pilihan ini menyederhanakan operasi cluster pada lab sintetis yang terisolasi, termasuk pembacaan identitas cluster. Ini tidak mengajarkan least privilege produksi. Rancangan produksi perlu memisahkan akun aplikasi, backup/replikasi, dan operator, lalu memberi hanya privilege yang diperlukan masing-masing.
 
 Image PostgreSQL dipin ke digest. Backup dan recovery memakai versi mayor yang sama, dengan batas memori per service. Nama project adalah `restorelab`, sehingga semua perintah engine menunjuk stack yang sama.

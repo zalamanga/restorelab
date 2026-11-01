@@ -80,6 +80,48 @@ jobs:
         env:
           PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/capture-summary.json
         run: npm run screenshots -- --reporter=list,json --output=test-results/capture
+      - name: Explain a native failure with bounded redacted diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import re
+          path = Path(".local/native-error.json")
+          try:
+              if path.is_symlink():
+                  raise ValueError("Diagnostic symlink")
+              with path.open("rb") as stream:
+                  raw = stream.read(32769)
+              if len(raw) > 32768:
+                  raise ValueError("Diagnostic too large")
+              value = json.loads(raw.decode("utf-8"))
+              if not isinstance(value, dict):
+                  raise ValueError("Invalid diagnostic")
+              stage = value.get("stage")
+              if stage not in ("setup", "prepare", "backup", "verify_backup", "changes", "restore_point", "incident", "archive", "recover", "verify"):
+                  stage = "unknown"
+              stderr = value.get("stderr")
+              if not isinstance(stderr, str):
+                  stderr = ""
+              stderr = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", stderr)
+              stderr = re.sub(r"(?i)\b((?:PGPASSWORD|password|token|secret)\s*=\s*)\S+", r"\1[REDACTED]", stderr)
+              stderr = re.sub(r"(?i)\bBearer\s+\S+", "Bearer [REDACTED]", stderr)
+              stderr = re.sub(r"(?i)\b(postgres(?:ql)?://)[^/\s@]+@", r"\1[REDACTED]@", stderr)
+              stderr = "".join(character if ord(character) >= 32 or character in "\n\t" else " " for character in stderr)
+              stderr = stderr.encode("utf-8")[:8192].decode("utf-8", errors="ignore")
+              result = {
+                  "stage": stage,
+                  "returncode": value.get("returncode") if type(value.get("returncode")) is int else None,
+                  "timed_out": value.get("timed_out") if type(value.get("timed_out")) is bool else None,
+                  "fatal": value.get("fatal") if type(value.get("fatal")) is bool else None,
+                  "stderr": stderr,
+              }
+          except (OSError, ValueError, UnicodeError):
+              result = {"stage": "unavailable", "returncode": None, "timed_out": None, "fatal": None, "stderr": "Native diagnostic unavailable."}
+          print(json.dumps(result, ensure_ascii=True))
+          PY
       - name: Stop only this lab's owned processes
         if: always()
         shell: bash

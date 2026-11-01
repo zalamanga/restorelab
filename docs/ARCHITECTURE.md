@@ -28,6 +28,8 @@ Image PostgreSQL 17 dipatok dengan digest. Primary, archive, backup dan recovery
 
 Primary memeriksa nama database, role, versi major, marker schema, active run dan system identifier sebelum operasi penulisan. Script volume/backup/clone memeriksa marker serta UUID, menolak target yang sudah ada, dan tidak menerima path dari browser. Source tidak menggunakan URL database atau SQL yang dikirim pengguna.
 
+Pada Linux, secret file host tetap bermode `0600`. Startup backup saja membaca file tersebut sebagai root, lalu segera menurunkan UID ke pengguna `postgres` sebelum menjalankan SQL dan `pg_basebackup`. Password diteruskan melalui environment proses, bukan argumen perintah. Tools lain tetap menggunakan pengguna `postgres`; izin file host tidak dilonggarkan agar bind mount dapat dibaca pengguna container.
+
 Physical backup menyimpan kondisi awal cluster. WAL setelah backup membawa tiga transaksi baru, restore point dan insiden. Recovery memakai `recovery.signal`, `restore_command` dari arsip khusus, target bernama dan aksi pause. Clone tetap read-only pada target. Source primary tetap menyimpan bukti kerusakan sintetis; tidak dialihkan menjadi clone hasil pemulihan.
 
 Manifest verification memeriksa integritas backup fisik. Pemulihan dan pembandingan data dijalankan terpisah karena manifest yang valid saja tidak membuktikan isi hasil restore. Fingerprint dibentuk dari JSON pesanan yang diurutkan menurut ID dengan serialisasi kanonis. System identifier, active run, native pause, LSN, sepuluh ID, tiga baris pascabackup dan pengecualian marker insiden juga diperiksa.

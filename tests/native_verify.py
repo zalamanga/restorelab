@@ -4,6 +4,7 @@ import json
 import math
 from pathlib import Path
 import re
+import sys
 import time
 import urllib.error
 import urllib.parse
@@ -86,6 +87,19 @@ def verify(base_url, output, timeout):
     while run.get("status") in ("queued", "running") and time.monotonic() < deadline:
         time.sleep(1)
         _, _, run, _ = request(base_url, "GET", f"/api/runs/{run_id}")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps({
+        "status": "FAIL", "run": run, "duplicate_reused": True,
+    }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    if run.get("status") != "verified":
+        step = run.get("step")
+        if step not in ("prepare", "backup", "verify_backup", "changes", "restore_point", "incident", "archive", "recover", "verify"):
+            step = "unknown"
+        error = run.get("error")
+        code = error.get("code") if isinstance(error, dict) else None
+        if not isinstance(code, str) or re.fullmatch(r"[a-z_]{1,64}", code) is None:
+            code = "unknown"
+        print(f"Native job failure: step={step} error_code={code}", file=sys.stderr)
     require(run.get("status") == "verified", f"Native job finished as {run.get('status', 'unknown')}")
     _, headers, report, raw = request(base_url, "GET", f"/api/runs/{run_id}/report")
     validate_report(report, run_id)

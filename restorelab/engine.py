@@ -97,7 +97,10 @@ class Engine:
         )
 
     def _tools(self, script, *arguments, run_id=None, check=True):
-        return self._compose("run", "--rm", "-T", "--no-deps", "tools", "/opt/restorelab/" + script, *arguments, run_id=run_id, check=check)
+        command = ["run", "--rm", "-T", "--no-deps"]
+        if script == "backup.sh":
+            command.extend(["--user", "0:0"])
+        return self._compose(*command, "tools", "/opt/restorelab/" + script, *arguments, run_id=run_id, check=check)
 
     def _sql(self, sql, *, service="primary", run_id=None, check=True):
         return self._compose(
