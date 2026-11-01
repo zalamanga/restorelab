@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>RestoreLab · Latihan pemulihan PostgreSQL</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Lewati ke area kerja</a>
+  <header class="app-header">
+    <div class="header-content">
+      <a class="wordmark" href="/" aria-label="RestoreLab, halaman utama">RestoreLab<span>PostgreSQL recovery lab</span></a>
+      <div class="connection-area">
+        <span id="connection-status">Menghubungkan ke lab…</span>
+        <button id="refresh-button" type="button" class="button button-secondary">Perbarui status</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" class="workspace">
+    <div class="page-heading">
+      <div>
+        <h1>Latihan pemulihan database</h1>
+        <p>Uji backup fisik dan WAL PostgreSQL dengan insiden penghapusan pesanan di database latihan.</p>
+      </div>
+      <p id="quota" class="quota">Memuat batas latihan…</p>
+    </div>
+
+    <div id="network-error" class="notice notice-error" hidden>
+      <div><strong>Koneksi ke lab terputus</strong><p id="network-error-text">Data terakhir tetap ditampilkan. Periksa server lokal, lalu coba lagi.</p></div>
+      <button type="button" id="retry-button" class="button button-secondary">Coba hubungkan lagi</button>
+    </div>
+
+    <section class="launch-panel" aria-labelledby="scenario-title">
+      <div class="scenario-copy">
+        <p class="section-label">Skenario latihan</p>
+        <h2 id="scenario-title">Pulihkan pesanan sebelum terhapus</h2>
+        <p>Lab membuat backup, menambahkan pesanan, lalu menghapus sebagian data. Cluster pemulihan terpisah harus mengembalikan isi database pada restore point sebelum insiden.</p>
+        <p class="scope-note">Khusus data sintetis RestoreLab. Cluster sumber yang rusak tetap disimpan sebagai bukti.</p>
+      </div>
+      <form id="run-form" class="launch-form">
+        <label class="confirmation" for="acknowledge">
+          <input id="acknowledge" name="acknowledge" type="checkbox" aria-describedby="start-help">
+          <span>Saya memahami latihan ini menyiapkan ulang data sintetis RestoreLab.</span>
+        </label>
+        <button id="start-button" class="button button-primary" type="submit" disabled>Jalankan latihan pemulihan</button>
+        <p id="start-help" class="form-help">Memuat kesiapan lab…</p>
+        <p id="start-error" class="form-error" role="alert" hidden></p>
+      </form>
+    </section>
+
+    <div class="work-layout">
+      <section class="run-panel" aria-labelledby="run-heading">
+        <div class="panel-heading">
+          <div>
+            <h2 id="run-heading">Jurnal pemulihan</h2>
+            <p id="run-meta" class="muted">Memuat riwayat latihan…</p>
+          </div>
+          <span id="run-status" class="status status-neutral">Memuat</span>
+        </div>
+        <div id="run-loading" class="loading-message">Mengambil status dan jurnal dari server lokal…</div>
+        <div id="run-empty" class="empty-state" hidden>
+          <h3>Belum ada latihan</h3>
+          <p>Konfirmasi skenario di atas, lalu jalankan latihan pertama. Setiap fase akan muncul di sini saat PostgreSQL mengerjakannya.</p>
+        </div>
+        <div id="run-body" hidden>
+          <div id="outcome" class="outcome" hidden></div>
+          <ol id="timeline" class="timeline" aria-label="Fase pemulihan PostgreSQL"></ol>
+          <details id="event-details" class="disclosure">
+            <summary>Catatan kejadian lengkap <span id="event-count"></span></summary>
+            <ol id="event-log" class="event-log"></ol>
+          </details>
+        </div>
+      </section>
+
+      <aside class="history-panel" aria-labelledby="history-heading">
+        <div class="panel-heading history-heading"><h2 id="history-heading">Riwayat latihan</h2><span id="history-count" class="muted"></span></div>
+        <p id="history-empty" class="history-empty">Menunggu data dari lab.</p>
+        <button id="active-button" class="button button-secondary active-link" type="button" hidden>Lihat latihan aktif</button>
+        <ol id="history-list" class="history-list" aria-label="Pilih latihan untuk melihat hasil"></ol>
+        <p class="history-footnote">Hasil tersimpan setelah server dimulai ulang. Latihan yang terputus perlu diperiksa sebelum membuat latihan baru.</p>
+      </aside>
+    </div>
+
+    <section id="report-panel" class="report-panel" aria-labelledby="report-heading" hidden>
+      <div class="panel-heading">
+        <div><h2 id="report-heading">Perbandingan data</h2><p class="muted">Snapshot dan fingerprint dari latihan yang dipilih.</p></div>
+        <a id="download-report" class="button button-secondary" download hidden>Unduh laporan JSON</a>
+      </div>
+      <dl id="snapshot-comparison" class="snapshot-comparison"></dl>
+      <div class="verification-row">
+        <div><h3>Hasil pemeriksaan</h3><ul id="findings" class="findings"></ul></div>
+        <dl id="measurements" class="measurements"></dl>
+      </div>
+      <p class="measurement-note">Waktu pemulihan diukur pada lab ini. Hasil latihan bukan jaminan RTO atau RPO sistem produksi.</p>
+      <details id="technical-details" class="disclosure technical-details">
+        <summary>Bukti teknis PostgreSQL</summary>
+        <p class="muted">Restore point, posisi WAL, dan fingerprint membantu memeriksa hasil di luar jumlah baris.</p>
+        <dl id="technical-evidence" class="technical-evidence"></dl>
+        <div id="fingerprints" class="fingerprints"></div>
+      </details>
+    </section>
+  </main>
+
+  <footer class="app-footer"><span>RestoreLab</span><p>Lingkungan latihan lokal · Backup fisik + pemulihan WAL ke named restore point</p></footer>
+  <p id="announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></p>
+  <noscript><p class="noscript">Aktifkan JavaScript untuk memuat jurnal dan menjalankan latihan melalui server lokal.</p></noscript>
+</body>
+</html>

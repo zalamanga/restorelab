@@ -1,0 +1,82 @@
+name: restorelab
+
+x-postgres-image: &postgres-image postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
+
+services:
+  primary:
+    image: *postgres-image
+    environment:
+      POSTGRES_DB: restorelab
+      POSTGRES_USER: restorelab
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes:
+      - primary_data:/var/lib/postgresql/data
+      - wal_archive:/archive
+      - ./infrastructure:/opt/restorelab:ro
+      - ./infrastructure/init-primary.sh:/docker-entrypoint-initdb.d/10-restorelab.sh:ro
+    command:
+      - postgres
+      - -c
+      - shared_buffers=64MB
+      - -c
+      - max_connections=20
+      - -c
+      - max_wal_senders=4
+      - -c
+      - max_wal_size=128MB
+      - -c
+      - min_wal_size=32MB
+      - -c
+      - wal_level=replica
+      - -c
+      - archive_mode=on
+      - -c
+      - archive_command=/bin/sh /opt/restorelab/archive-wal.sh %p %f
+      - -c
+      - archive_timeout=0
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U restorelab -d restorelab"]
+      interval: 2s
+      timeout: 4s
+      retries: 30
+      start_period: 5s
+    mem_limit: 384m
+    shm_size: 64mb
+
+  tools:
+    image: *postgres-image
+    entrypoint: [/bin/sh]
+    user: postgres
+    secrets: [postgres_password]
+    volumes:
+      - wal_archive:/archive
+      - backups:/backups
+      - recovery_data:/recovery
+      - ./infrastructure:/opt/restorelab:ro
+    mem_limit: 128m
+
+  recovery:
+    profiles: [recovery]
+    image: *postgres-image
+    environment:
+      PGDATA: /recovery/${RESTORELAB_RUN_ID:-unconfigured}/data
+      POSTGRES_DB: restorelab
+      POSTGRES_USER: restorelab
+    entrypoint: [/bin/sh, /opt/restorelab/start-recovery.sh]
+    volumes:
+      - recovery_data:/recovery
+      - wal_archive:/archive:ro
+      - ./infrastructure:/opt/restorelab:ro
+    mem_limit: 384m
+    shm_size: 64mb
+
+secrets:
+  postgres_password:
+    file: ./.secrets/postgres_password
+
+volumes:
+  primary_data:
+  wal_archive:
+  backups:
+  recovery_data:

@@ -1,0 +1,114 @@
+name: Verify RestoreLab
+
+on:
+  push:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/screenshots/**"
+      - LICENSE
+  pull_request:
+    paths-ignore:
+      - "**/*.md"
+      - "docs/screenshots/**"
+      - LICENSE
+  workflow_dispatch:
+
+concurrency:
+  group: restorelab-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  native-and-browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      CI: "true"
+      PLAYWRIGHT_CHANNEL: chromium
+      RESTORELAB_URL: http://127.0.0.1:8140
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22.14.0"
+          cache: npm
+      - name: Install pinned browser test tools
+        run: npm ci --ignore-scripts --cache .local/npm-cache
+      - name: Audit browser test dependencies
+        run: npm audit --audit-level=high --cache .local/npm-cache
+      - name: Test controller, ledger and HTTP perimeter
+        run: python tests/run_unit.py
+      - name: Start the local controller
+        shell: bash
+        run: |
+          mkdir -p .local test-results
+          python run.py --port 8140 > .local/ci-controller.log 2>&1 &
+          echo "$!" > .local/ci-controller.pid
+          python - <<'PY'
+          import json
+          import time
+          import urllib.error
+          import urllib.request
+          deadline = time.monotonic() + 60
+          while time.monotonic() < deadline:
+              try:
+                  with urllib.request.urlopen("http://127.0.0.1:8140/health", timeout=2) as response:
+                      if json.load(response).get("status") == "ok":
+                          break
+              except (OSError, ValueError, urllib.error.URLError):
+                  pass
+              time.sleep(0.25)
+          else:
+              raise SystemExit("The local controller did not become healthy")
+          PY
+      - name: Verify actual physical backup and named-target WAL recovery
+        run: python tests/native_verify.py --timeout 600
+      - name: Reject a corrupted isolated backup clone
+        run: python tests/native_corruption.py
+      - name: Install Chromium for the native UI checks
+        run: npx playwright install --with-deps chromium
+      - name: Verify native UI start and browser behavior
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/browser-summary.json
+        run: node node_modules/@playwright/test/cli.js test --reporter=list,json --output=test-results/browser
+      - name: Capture actual native PostgreSQL evidence
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/capture-summary.json
+        run: npm run screenshots -- --reporter=list,json --output=test-results/capture
+      - name: Stop only this lab's owned processes
+        if: always()
+        shell: bash
+        run: |
+          if [ -f .local/ci-controller.pid ]; then
+            controller_pid="$(cat .local/ci-controller.pid)"
+            if [[ "$controller_pid" =~ ^[0-9]+$ ]] && [ -r "/proc/$controller_pid/cmdline" ]; then
+              if tr '\0' ' ' < "/proc/$controller_pid/cmdline" | grep -Fq 'python run.py --port 8140'; then
+                kill "$controller_pid" || true
+              fi
+            fi
+          fi
+          docker compose --project-name restorelab --project-directory "$PWD" --file compose.yaml --profile recovery stop
+      - name: Upload only JSON and PNG verification evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: restorelab-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            test-results/unit-summary.json
+            test-results/native-evidence.json
+            test-results/native-corruption.json
+            test-results/browser-summary.json
+            test-results/capture-summary.json
+            test-results/**/native-report.json
+            test-results/**/native-ui-report.json
+            test-results/**/native-verified.png
+            test-results/**/native-running.png
+            test-results/**/test-failed-*.png
+            docs/screenshots/*.png

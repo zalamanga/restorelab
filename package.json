@@ -1,0 +1,11 @@
+{
+  "name": "restorelab",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test:browser": "playwright test",
+    "screenshots": "node tests/browser/capture.js"
+  },
+  "devDependencies": { "@playwright/test": "1.64.1" }
+}

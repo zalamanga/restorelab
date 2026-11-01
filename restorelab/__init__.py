@@ -1,0 +1,1 @@
+"""PostgreSQL recovery training workstation."""
